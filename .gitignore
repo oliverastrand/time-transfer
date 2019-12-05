@@ -1,2 +1,9 @@
 # Avoid copying entire dataset
 data/
+
+# Python
+__pycache__/
+
+# Jupyter
+.ipynb_checkpoints
+
