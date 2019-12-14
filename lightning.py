@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
 from data_utils import TimedImageDataset
-from models import DumbEncoder, DumbDecoder
+from models import UNet
 
 
 class DumbSystem(pl.LightningModule):
