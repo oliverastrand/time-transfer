@@ -84,6 +84,7 @@ class UNet(nn.Module):
 
         self.down1 = nn.Sequential(
             nn.Conv2d(n_channels, hidden_dim, kernel_size=(4, 3), padding=(2, 1), padding_mode='same'),
+            nn.ReLU(True),
             nn.Conv2d(hidden_dim, hidden_dim * 2, kernel_size=(4, 3), padding=(1, 1), padding_mode='same'),
             nn.InstanceNorm2d(hidden_dim * 2))
 
