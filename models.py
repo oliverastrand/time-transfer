@@ -110,16 +110,18 @@ class UNet(nn.Module):
                                  nn.Conv2d(hidden_dim * 8, hidden_dim * 8, kernel_size=(4, 4), padding=1),
                                  nn.InstanceNorm2d(hidden_dim * 8))
 
-        self.up2 = nn.Sequential(
-            nn.ConvTranspose2d(hidden_dim * 8, hidden_dim * 4, kernel_size=(8, 6), stride=(4, 3), padding=(2, 1)),
-            # nn.Conv2d(hidden_dim * 4, hidden_dim * 4, kernel_size=(4, 3), padding=(1, 1)),
-        )
+        self.up2 = nn.Sequential(nn.Upsample(scale_factor=(4, 3), mode='bilinear', align_corners=True),
+                                 nn.Conv2d(hidden_dim * 8, hidden_dim * 4, kernel_size=(4, 3), padding=(2, 1)),
+                                 nn.Conv2d(hidden_dim * 4, hidden_dim * 4, kernel_size=(4, 3), padding=(1, 1)),
+                                 nn.InstanceNorm2d(hidden_dim * 4))
 
-        self.up3 = nn.Sequential(nn.ConvTranspose2d(hidden_dim * 4, hidden_dim * 2, kernel_size=(8, 6), stride=(4, 3)))
+        self.up3 = nn.Sequential(nn.Upsample(scale_factor=(4, 3), mode='bilinear', align_corners=True),
+                                 nn.Conv2d(hidden_dim * 4, hidden_dim * 2, kernel_size=(4, 3), padding=(2, 1)),
+                                 nn.Conv2d(hidden_dim * 2, hidden_dim * 2, kernel_size=(4, 3), padding=(1, 1)),
+                                 nn.InstanceNorm2d(hidden_dim * 4))
 
-        self.up4 = nn.Sequential(nn.Conv2d(hidden_dim * 2, hidden_dim, kernel_size=(4, 4), padding=(2, 2)))
-
-        self.out_conv = nn.Sequential(nn.Conv2d(hidden_dim, n_channels, kernel_size=(4, 3)))
+        self.up4 = nn.Sequential(nn.Conv2d(hidden_dim * 2, hidden_dim, kernel_size=(4, 3), padding=(2, 1)),
+                                 nn.Conv2d(hidden_dim, n_channels, kernel_size=(4, 3), padding=(1, 1)))
 
     def forward(self, x):
         print(x.shape)
@@ -139,9 +141,9 @@ class UNet(nn.Module):
         print(x.shape)
         x = self.up4(x)
         print(x.shape)
-        out = self.out_conv(x)
-        print(out.shape)
-        return out
+        # out = self.out_conv(x)
+        # print(out.shape)
+        return x
 
 
 if __name__ == '__main__':
