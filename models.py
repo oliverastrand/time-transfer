@@ -47,30 +47,33 @@ class UNet(nn.Module):
                                  nn.InstanceNorm2d(hidden_dim * 8))
 
         self.up2 = nn.Sequential(nn.Upsample(scale_factor=(4, 3), mode='bilinear', align_corners=True),
-                                 nn.Conv2d(hidden_dim * 16, hidden_dim * 4, kernel_size=(4, 3), padding=(2, 1)),
+                                 nn.Conv2d(hidden_dim * 16 + 2, hidden_dim * 4, kernel_size=(4, 3), padding=(2, 1)),
                                  nn.ReLU(True),
                                  nn.Conv2d(hidden_dim * 4, hidden_dim * 4, kernel_size=(4, 3), padding=(1, 1)),
                                  nn.ReLU(True),
                                  nn.InstanceNorm2d(hidden_dim * 4))
 
         self.up3 = nn.Sequential(nn.Upsample(scale_factor=(4, 3), mode='bilinear', align_corners=True),
-                                 nn.Conv2d(hidden_dim * 8, hidden_dim * 2, kernel_size=(4, 3), padding=(2, 1)),
+                                 nn.Conv2d(hidden_dim * 8 + 2, hidden_dim * 2, kernel_size=(4, 3), padding=(2, 1)),
                                  nn.ReLU(True),
                                  nn.Conv2d(hidden_dim * 2, hidden_dim * 2, kernel_size=(4, 3), padding=(1, 1)),
                                  nn.ReLU(True),
                                  nn.InstanceNorm2d(hidden_dim * 2))
 
-        self.up4 = nn.Sequential(nn.Conv2d(hidden_dim * 4, hidden_dim * 2, kernel_size=(4, 3), padding=(2, 1)),
+        self.up4 = nn.Sequential(nn.Conv2d(hidden_dim * 4 + 2, hidden_dim * 2, kernel_size=(4, 3), padding=(2, 1)),
                                  nn.ReLU(True),
                                  nn.Conv2d(hidden_dim * 2, n_channels, kernel_size=(4, 3), padding=(1, 1)))
 
-    def combine(self, x1, x2):
-        return torch.cat([x1, x2], dim=1)
+    def combine(self, *x):
+        return torch.cat(x, dim=1)
 
     def encode_time(self, t):
         angle = 2 * np.pi / 24 * t
         angle = angle.unsqueeze(-1)
         return torch.cat([angle.cos(), angle.sin()], dim=1)
+
+    def time_feature_map(self, encoded_time, shape):
+        return encoded_time.unsqueeze(0).repeat(1, 1, torch.prod(torch.tensor(shape))).view(-1, 2, *shape)
 
     def forward(self, x, t):
         # downsampling
@@ -87,15 +90,15 @@ class UNet(nn.Module):
         # x = x4.view((x4.size(0), -1))
         # print(x.shape)
         encoded_t = self.encode_time(t)
-        time_features = encoded_t.unsqueeze(0).repeat(1, 1, 25*25).view(-1, 2, 25, 25)
+        # time_features = self.time_feature_map(encoded_t, (25, 25))
         # upsampling
-        x = self.up1(self.combine(x4, time_features))
+        x = self.up1(self.combine(x4, self.time_feature_map(encoded_t, (25, 25))))
         print(x.shape)
-        x = self.up2(self.combine(x, x3))
+        x = self.up2(self.combine(x, x3, self.time_feature_map(encoded_t, (50, 50))))
         print(x.shape)
-        x = self.up3(self.combine(x, x2))
+        x = self.up3(self.combine(x, x2, self.time_feature_map(encoded_t, (200, 150))))
         print(x.shape)
-        x = self.up4(self.combine(x, x1))
+        x = self.up4(self.combine(x, x1, self.time_feature_map(encoded_t, (800, 450))))
         print(x.shape)
         # out = self.out_conv(x)
         # print(out.shape)
