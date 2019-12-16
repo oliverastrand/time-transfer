@@ -11,7 +11,6 @@ class TimedImageDataset(Dataset):
         self.root_dir = root_dir
         self.n = len([d for d in os.listdir(root_dir) if "." not in d])
         self.transform = transforms.Compose([
-            transforms.CenterCrop(10),
             transforms.ToTensor(),
         ])
 
@@ -24,6 +23,21 @@ class TimedImageDataset(Dataset):
 
         scene_dict = {}
         for t in times:
+            hour, minute = t.split('_')
             image = Image.open(scene_dir + f"/{t}.jpg")
-            scene_dict[t] = self.transform(image)
+            scene_dict[int(hour)] = self.transform(image)
         return scene_dict
+
+
+def prefix_sum(lengths):
+    result = []
+    for i, x in enumerate(lengths):
+        if i == 0:
+            result.append(x)
+        else:
+            result.append(x + result[i - 1])
+    return result
+
+
+if __name__ == '__main__':
+    dataset = TimedImageDataset(r'E:\TimeLapseVDataDownsampled')
