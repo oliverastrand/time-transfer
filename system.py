@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 from argparse import Namespace
 from torch.utils.data import DataLoader, Subset
 import torchvision
+import os
 
 from models import UNet
 from data_utils import TimedImageDataset, prefix_sum
@@ -17,14 +18,14 @@ class TimeTransfer(pl.LightningModule):
         # networks
         self.unet = UNet(3, hparams.hidden_dim)
 
-        self.data_dir = r'/Users/ruoyi/Downloads/TimeLapseVDataDownsampled'
+        self.data_dir = os.path.expanduser(hparams.data_dir)
 
         self.split_indices = prefix_sum(hparams.data_split)
 
         # self.example_input_array = torch.zeros((4, 3, 450, 800)), torch.tensor([3, 6, 12, 21])
 
     def forward(self, x, t):
-        t = t * torch.ones(x.shape[0])
+        t = t * torch.ones(x.shape[0]).to(x.device)
         return self.unet(x, t)
 
     def get_time_batch(self, batch, t):
@@ -33,8 +34,8 @@ class TimeTransfer(pl.LightningModule):
 
     def training_step(self, batch, batch_nb):
         # REQUIRED
-        source_hour = 12
-        target_hour = 12
+        source_hour = torch.randint(0, 23, (1,)).item()
+        target_hour = source_hour
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
@@ -44,8 +45,8 @@ class TimeTransfer(pl.LightningModule):
 
     def validation_step(self, batch, batch_nb):
         # OPTIONAL
-        source_hour = 12
-        target_hour = 12
+        source_hour = torch.randint(0, 23, (1,)).item()
+        target_hour = source_hour
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
@@ -60,8 +61,8 @@ class TimeTransfer(pl.LightningModule):
 
     def test_step(self, batch, batch_nb):
         # OPTIONAL
-        source_hour = 12
-        target_hour = 12
+        source_hour = torch.randint(0, 23, (1,)).item()
+        target_hour = source_hour
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
@@ -78,8 +79,8 @@ class TimeTransfer(pl.LightningModule):
         # log sampled images
         dataset = self.test_dataloader()[0].dataset
         samples = dataset[:self.hparams.n_samples]
-        source_hour = 12
-        target_hour = 12
+        source_hour = torch.randint(0, 23, (1,)).item()
+        target_hour = source_hour
         x = self.get_time_batch(samples, source_hour)
         y = self.get_time_batch(samples, target_hour)
         y_hat = self.forward(x, target_hour)
@@ -116,14 +117,15 @@ class TimeTransfer(pl.LightningModule):
 
 if __name__ == '__main__':
     args = {
-        'batch_size': 64,
+        'batch_size': 16,
         'lr': 1e-4,
-        'hidden_dim': 16,
-        'data_split': [8000, 1000, 1000],
-        'n_samples': 10
+        'hidden_dim': 4,
+        'data_split': [4000, 1000, 1000],
+        'n_samples': 10,
+        'data_dir': r'~/E/TimeLapseVDataDownsampled'
     }
     hparams = Namespace(**args)
     time_transfer = TimeTransfer(hparams)
-    trainer = pl.Trainer(gpus=0)
+    trainer = pl.Trainer(gpus=1)
     trainer.fit(time_transfer)
     # trainer.test(time_transfer)
