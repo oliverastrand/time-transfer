@@ -77,15 +77,15 @@ class UNet(nn.Module):
 
     def forward(self, x, t):
         # downsampling
-        print(x.shape)
+        # print(x.shape)
         x1 = self.down1(x)
-        print(x1.shape)
+        # print(x1.shape)
         x2 = self.down2(x1)
-        print(x2.shape)
+        # print(x2.shape)
         x3 = self.down3(x2)
-        print(x3.shape)
+        # print(x3.shape)
         x4 = self.down4(x3)
-        print(x4.shape)
+        # print(x4.shape)
 
         # x = x4.view((x4.size(0), -1))
         # print(x.shape)
@@ -93,13 +93,13 @@ class UNet(nn.Module):
         # time_features = self.time_feature_map(encoded_t, (25, 25))
         # upsampling
         x = self.up1(self.combine(x4, self.time_feature_map(encoded_t, (25, 25))))
-        print(x.shape)
+        # print(x.shape)
         x = self.up2(self.combine(x, x3, self.time_feature_map(encoded_t, (50, 50))))
-        print(x.shape)
+        # print(x.shape)
         x = self.up3(self.combine(x, x2, self.time_feature_map(encoded_t, (150, 200))))
-        print(x.shape)
+        # print(x.shape)
         x = self.up4(self.combine(x, x1, self.time_feature_map(encoded_t, (450, 800))))
-        print(x.shape)
+        # print(x.shape)
         # out = self.out_conv(x)
         # print(out.shape)
         return x
