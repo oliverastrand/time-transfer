@@ -18,6 +18,18 @@ class TimedImageDataset(Dataset):
         return self.n
 
     def __getitem__(self, idx):
+        if isinstance(idx, slice):
+            ifnone = lambda a, b: b if a is None else a
+            scene_dicts = []
+            for x in range(ifnone(idx.start, 0),
+                           ifnone(idx.stop, 0),
+                           ifnone(idx.step, 1)):
+                scene_dicts.append(self[x])
+            ret_dict = {}
+            for key in scene_dicts[0].keys():
+                ret_dict[key] = torch.stack([x[key] for x in scene_dicts])
+            return ret_dict
+
         scene_dir = self.root_dir + f"/{idx}"
         times = [f[:-4] for f in os.listdir(scene_dir) if ".jpg" in f]
 
