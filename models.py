@@ -11,23 +11,23 @@ class UNet(nn.Module):
         self.hidden_dim = hidden_dim
 
         self.down1 = nn.Sequential(
-            nn.Conv2d(n_channels, hidden_dim, kernel_size=(4, 3), padding=(2, 1), padding_mode='same'),
+            nn.Conv2d(n_channels, hidden_dim, kernel_size=(3, 4), padding=(1, 2), padding_mode='same'),
             nn.ReLU(True),
-            nn.Conv2d(hidden_dim, hidden_dim * 2, kernel_size=(4, 3), padding=(1, 1), padding_mode='same'),
+            nn.Conv2d(hidden_dim, hidden_dim * 2, kernel_size=(3, 4), padding=(1, 1), padding_mode='same'),
             nn.ReLU(True),
             nn.InstanceNorm2d(hidden_dim * 2))
 
         self.down2 = nn.Sequential(
-            nn.Conv2d(hidden_dim * 2, hidden_dim * 4, kernel_size=(8, 6), stride=(4, 3), padding=(4, 2)),
+            nn.Conv2d(hidden_dim * 2, hidden_dim * 4, kernel_size=(6, 8), stride=(3, 4), padding=(2, 4)),
             nn.ReLU(True),
-            nn.Conv2d(hidden_dim * 4, hidden_dim * 4, kernel_size=(4, 3), padding=(1, 1)),
+            nn.Conv2d(hidden_dim * 4, hidden_dim * 4, kernel_size=(3, 4), padding=(1, 1)),
             nn.ReLU(True),
             nn.InstanceNorm2d(hidden_dim * 4))
 
         self.down3 = nn.Sequential(
-            nn.Conv2d(hidden_dim * 4, hidden_dim * 8, kernel_size=(8, 6), stride=(4, 3), padding=(4, 2)),
+            nn.Conv2d(hidden_dim * 4, hidden_dim * 8, kernel_size=(6, 8), stride=(3, 4), padding=(2, 4)),
             nn.ReLU(True),
-            nn.Conv2d(hidden_dim * 8, hidden_dim * 8, kernel_size=(4, 3), padding=(1, 1)),
+            nn.Conv2d(hidden_dim * 8, hidden_dim * 8, kernel_size=(3, 4), padding=(1, 1)),
             nn.ReLU(True),
             nn.InstanceNorm2d(hidden_dim * 8))
 
@@ -46,23 +46,23 @@ class UNet(nn.Module):
                                  nn.ReLU(True),
                                  nn.InstanceNorm2d(hidden_dim * 8))
 
-        self.up2 = nn.Sequential(nn.Upsample(scale_factor=(4, 3), mode='bilinear', align_corners=True),
-                                 nn.Conv2d(hidden_dim * 16 + 2, hidden_dim * 4, kernel_size=(4, 3), padding=(2, 1)),
+        self.up2 = nn.Sequential(nn.Upsample(scale_factor=(3, 4), mode='bilinear', align_corners=True),
+                                 nn.Conv2d(hidden_dim * 16 + 2, hidden_dim * 4, kernel_size=(3, 4), padding=(1, 2)),
                                  nn.ReLU(True),
-                                 nn.Conv2d(hidden_dim * 4, hidden_dim * 4, kernel_size=(4, 3), padding=(1, 1)),
+                                 nn.Conv2d(hidden_dim * 4, hidden_dim * 4, kernel_size=(3, 4), padding=(1, 1)),
                                  nn.ReLU(True),
                                  nn.InstanceNorm2d(hidden_dim * 4))
 
-        self.up3 = nn.Sequential(nn.Upsample(scale_factor=(4, 3), mode='bilinear', align_corners=True),
-                                 nn.Conv2d(hidden_dim * 8 + 2, hidden_dim * 2, kernel_size=(4, 3), padding=(2, 1)),
+        self.up3 = nn.Sequential(nn.Upsample(scale_factor=(3, 4), mode='bilinear', align_corners=True),
+                                 nn.Conv2d(hidden_dim * 8 + 2, hidden_dim * 2, kernel_size=(3, 4), padding=(1, 2)),
                                  nn.ReLU(True),
-                                 nn.Conv2d(hidden_dim * 2, hidden_dim * 2, kernel_size=(4, 3), padding=(1, 1)),
+                                 nn.Conv2d(hidden_dim * 2, hidden_dim * 2, kernel_size=(3, 4), padding=(1, 1)),
                                  nn.ReLU(True),
                                  nn.InstanceNorm2d(hidden_dim * 2))
 
-        self.up4 = nn.Sequential(nn.Conv2d(hidden_dim * 4 + 2, hidden_dim * 2, kernel_size=(4, 3), padding=(2, 1)),
+        self.up4 = nn.Sequential(nn.Conv2d(hidden_dim * 4 + 2, hidden_dim * 2, kernel_size=(3, 4), padding=(1, 2)),
                                  nn.ReLU(True),
-                                 nn.Conv2d(hidden_dim * 2, n_channels, kernel_size=(4, 3), padding=(1, 1)))
+                                 nn.Conv2d(hidden_dim * 2, n_channels, kernel_size=(3, 4), padding=(1, 1)))
 
     def combine(self, *x):
         return torch.cat(x, dim=1)
@@ -96,9 +96,9 @@ class UNet(nn.Module):
         print(x.shape)
         x = self.up2(self.combine(x, x3, self.time_feature_map(encoded_t, (50, 50))))
         print(x.shape)
-        x = self.up3(self.combine(x, x2, self.time_feature_map(encoded_t, (200, 150))))
+        x = self.up3(self.combine(x, x2, self.time_feature_map(encoded_t, (150, 200))))
         print(x.shape)
-        x = self.up4(self.combine(x, x1, self.time_feature_map(encoded_t, (800, 450))))
+        x = self.up4(self.combine(x, x1, self.time_feature_map(encoded_t, (450, 800))))
         print(x.shape)
         # out = self.out_conv(x)
         # print(out.shape)
@@ -107,6 +107,6 @@ class UNet(nn.Module):
 
 if __name__ == '__main__':
     unet = UNet(3, 16)
-    example = torch.zeros((4, 3, 800, 450))
+    example = torch.zeros((4, 3, 450, 800))
     t = torch.zeros(4)
     out = unet(example, t)
