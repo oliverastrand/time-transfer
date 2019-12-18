@@ -23,7 +23,8 @@ class TimeTransfer(pl.LightningModule):
 
         self.split_indices = prefix_sum(hparams.data_split)
 
-        self.criteria = PerceptualLoss2().to('cuda:0')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.criteria = PerceptualLoss2().to(self.device)
 
         # self.example_input_array = torch.zeros((4, 3, 450, 800)), torch.tensor([3, 6, 12, 21])
         self.optimizer = torch.optim.Adam(self.unet.parameters(), lr=self.hparams.lr) 
@@ -45,7 +46,7 @@ class TimeTransfer(pl.LightningModule):
         y_hat = self.forward(x, target_hour)
         loss_test = self.criteria(y_hat, y)
         loss = F.mse_loss(y_hat, y)
-        print(loss - loss_test)
+        #print(loss - loss_test)
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
 
@@ -87,8 +88,8 @@ class TimeTransfer(pl.LightningModule):
         samples = dataset[:self.hparams.n_samples]
         source_hour = torch.randint(0, 23, (1,)).item()
         target_hour = source_hour
-        x = self.get_time_batch(samples, source_hour).to('cuda:0')
-        y = self.get_time_batch(samples, target_hour).to('cuda:0')
+        x = self.get_time_batch(samples, source_hour).to(self.device)
+        y = self.get_time_batch(samples, target_hour).to(self.device)
         y_hat = self.forward(x, target_hour)
         grid = torchvision.utils.make_grid(torch.stack([x, y_hat, y], dim=1).view(-1, 3, 450, 800),
                                            nrow=3)

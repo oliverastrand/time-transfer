@@ -43,9 +43,9 @@ class PerceptualLoss2(nn.Module):
     def get_features(self, img):
         ret = []
 
-        if self.slices[0] is None:
+        if self.content_slices[0] is None:
             ret.append(img)
-            slices = self.slices[1:]
+            slices = self.content_slices[1:]
         else:
             slices = self.content_slices
 
