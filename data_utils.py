@@ -18,7 +18,7 @@ class TimedImageDataset(Dataset):
         return self.n
 
     def __getitem__(self, idx):
-        if isinstance(idx, slice):
+        if isinstance(idx, slice) or isinstance(idx, range):
             ifnone = lambda a, b: b if a is None else a
             scene_dicts = []
             for x in range(ifnone(idx.start, 0),
