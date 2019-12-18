@@ -9,7 +9,6 @@ import os
 from models import UNet
 from data_utils import TimedImageDataset, prefix_sum
 
-from losses import PerceptualLoss2
 
 class TimeTransfer(pl.LightningModule):
     def __init__(self, hparams):
@@ -23,10 +22,7 @@ class TimeTransfer(pl.LightningModule):
 
         self.split_indices = prefix_sum(hparams.data_split)
 
-        self.criteria = PerceptualLoss2().to('cuda:0')
-
         # self.example_input_array = torch.zeros((4, 3, 450, 800)), torch.tensor([3, 6, 12, 21])
-        self.optimizer = torch.optim.Adam(self.unet.parameters(), lr=self.hparams.lr) 
 
     def forward(self, x, t):
         t = t * torch.ones(x.shape[0]).to(x.device)
@@ -43,9 +39,7 @@ class TimeTransfer(pl.LightningModule):
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
-        loss_test = self.criteria(y_hat, y)
         loss = F.mse_loss(y_hat, y)
-        print(loss - loss_test)
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
 
@@ -87,8 +81,10 @@ class TimeTransfer(pl.LightningModule):
         samples = dataset[:self.hparams.n_samples]
         source_hour = torch.randint(0, 23, (1,)).item()
         target_hour = source_hour
-        x = self.get_time_batch(samples, source_hour).to('cuda:0')
-        y = self.get_time_batch(samples, target_hour).to('cuda:0')
+
+        device = next(self.unet.parameters()).device
+        x = self.get_time_batch(samples, source_hour).to(device)
+        y = self.get_time_batch(samples, target_hour).to(device)
         y_hat = self.forward(x, target_hour)
         grid = torchvision.utils.make_grid(torch.stack([x, y_hat, y], dim=1).view(-1, 3, 450, 800),
                                            nrow=3)
@@ -98,29 +94,27 @@ class TimeTransfer(pl.LightningModule):
         # REQUIRED
         # can return multiple optimizers and learning_rate schedulers
         # (LBFGS it is automatically supported, no need for closure function)
-        optimizer = torch.optim.Adam(self.unet.parameters(), lr=self.hparams.lr) 
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda x: 1 if x in [0] else 1, last_epoch=-1)
-        return [optimizer], [scheduler] 
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
 
     @pl.data_loader
     def train_dataloader(self):
         # REQUIRED
         return DataLoader(Subset(TimedImageDataset(self.data_dir), range(self.split_indices[0])),
-                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=3)
+                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=4)
 
     @pl.data_loader
     def val_dataloader(self):
         # OPTIONAL
         return DataLoader(Subset(TimedImageDataset(self.data_dir), range(self.split_indices[0],
                                                                          self.split_indices[1])),
-                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=3)
+                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=4)
 
     @pl.data_loader
     def test_dataloader(self):
         # OPTIONAL
         return DataLoader(Subset(TimedImageDataset(self.data_dir), range(self.split_indices[1],
                                                                          self.split_indices[2])),
-                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=3)
+                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=4)
 
 
 if __name__ == '__main__':
@@ -130,10 +124,10 @@ if __name__ == '__main__':
         'hidden_dim': 4,
         'data_split': [4000, 1000, 1000],
         'n_samples': 10,
-        'data_dir': r'~/projects/time-transfer/data/TimeLapseVDataDownsampled'
+        'data_dir': r'~/E/TimeLapseVDataDownsampled'
     }
     hparams = Namespace(**args)
     time_transfer = TimeTransfer(hparams)
-    trainer = pl.Trainer(gpus=1, early_stop_callback=None, max_nb_epochs=12)
+    trainer = pl.Trainer(gpus=1)
     trainer.fit(time_transfer)
     # trainer.test(time_transfer)
