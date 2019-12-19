@@ -8,6 +8,7 @@ import os
 
 from models import UNet
 from data_utils import TimedImageDataset, prefix_sum
+from losses import PerceptualLoss as ContentLoss, PerceptualLoss2 as StyleLoss
 
 
 class TimeTransfer(pl.LightningModule):
@@ -22,6 +23,9 @@ class TimeTransfer(pl.LightningModule):
 
         self.split_indices = prefix_sum(hparams.data_split)
 
+        self.content_loss = ContentLoss()
+        self.style_loss = StyleLoss()
+
         # self.example_input_array = torch.zeros((4, 3, 450, 800)), torch.tensor([3, 6, 12, 21])
 
     def forward(self, x, t):
@@ -34,35 +38,43 @@ class TimeTransfer(pl.LightningModule):
 
     def training_step(self, batch, batch_nb):
         # REQUIRED
-        source_hour = torch.randint(0, 23, (1,)).item()
-        target_hour = source_hour
+        source_hour = 12
+        target_hour = torch.randint(0, 23, (1,)).item()
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
-        loss = F.mse_loss(y_hat, y)
-        tensorboard_logs = {'train_loss': loss}
+        mse_loss = F.mse_loss(y_hat, y)
+        content_loss = self.content_loss(y_hat, y)
+        # style_loss = self.style_loss(y_hat, y)
+        loss = mse_loss + content_loss
+        tensorboard_logs = {'train_loss': loss,
+                            'mse_loss': mse_loss,
+                            # 'perceptual_loss': content_loss + style_loss,
+                            'content_loss': content_loss,
+                            # 'style_loss': style_loss
+                            }
         return {'loss': loss, 'log': tensorboard_logs}
 
-    def validation_step(self, batch, batch_nb):
-        # OPTIONAL
-        source_hour = torch.randint(0, 23, (1,)).item()
-        target_hour = source_hour
-        x = self.get_time_batch(batch, source_hour)
-        y = self.get_time_batch(batch, target_hour)
-        y_hat = self.forward(x, target_hour)
-        loss = F.mse_loss(y_hat, y)
-        return {'val_loss': loss}
+    # def validation_step(self, batch, batch_nb):
+    #     # OPTIONAL
+    #     source_hour = 12
+    #     target_hour = torch.randint(0, 23, (1,)).item()
+    #     x = self.get_time_batch(batch, source_hour)
+    #     y = self.get_time_batch(batch, target_hour)
+    #     y_hat = self.forward(x, target_hour)
+    #     loss = F.mse_loss(y_hat, y)
+    #     return {'val_loss': loss}
 
-    def validation_end(self, outputs):
-        # OPTIONAL
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        tensorboard_logs = {'val_loss': avg_loss}
-        return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
+    # def validation_end(self, outputs):
+    #     # OPTIONAL
+    #     avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+    #     tensorboard_logs = {'val_loss': avg_loss}
+    #     return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
 
     def test_step(self, batch, batch_nb):
         # OPTIONAL
-        source_hour = torch.randint(0, 23, (1,)).item()
-        target_hour = source_hour
+        source_hour = 12
+        target_hour = torch.randint(0, 23, (1,)).item()
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
@@ -79,8 +91,8 @@ class TimeTransfer(pl.LightningModule):
         # log sampled images
         dataset = self.test_dataloader()[0].dataset
         samples = dataset[:self.hparams.n_samples]
-        source_hour = torch.randint(0, 23, (1,)).item()
-        target_hour = source_hour
+        source_hour = 12
+        target_hour = torch.randint(0, 23, (1,)).item()
 
         device = next(self.unet.parameters()).device
         x = self.get_time_batch(samples, source_hour).to(device)
@@ -100,34 +112,36 @@ class TimeTransfer(pl.LightningModule):
     def train_dataloader(self):
         # REQUIRED
         return DataLoader(Subset(TimedImageDataset(self.data_dir), range(self.split_indices[0])),
-                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=4)
+                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=2)
 
     @pl.data_loader
     def val_dataloader(self):
         # OPTIONAL
         return DataLoader(Subset(TimedImageDataset(self.data_dir), range(self.split_indices[0],
                                                                          self.split_indices[1])),
-                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=4)
+                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=2)
 
     @pl.data_loader
     def test_dataloader(self):
         # OPTIONAL
         return DataLoader(Subset(TimedImageDataset(self.data_dir), range(self.split_indices[1],
                                                                          self.split_indices[2])),
-                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=4)
+                          batch_size=self.hparams.batch_size, shuffle=True, num_workers=2)
 
 
 if __name__ == '__main__':
     args = {
-        'batch_size': 16,
-        'lr': 1e-4,
+        'batch_size': 8,
+        'lr': 0.0002,
         'hidden_dim': 4,
-        'data_split': [4000, 1000, 1000],
+        'data_split': [5000, 1000, 1000],
         'n_samples': 10,
         'data_dir': r'~/E/TimeLapseVDataDownsampled'
     }
     hparams = Namespace(**args)
     time_transfer = TimeTransfer(hparams)
-    trainer = pl.Trainer(gpus=1)
+    trainer = pl.Trainer(gpus=1, default_save_path='logs/transfer_from_noon_bn_logs',
+                         early_stop_callback=None,
+                         max_nb_epochs=20)
     trainer.fit(time_transfer)
     # trainer.test(time_transfer)
