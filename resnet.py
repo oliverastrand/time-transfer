@@ -7,6 +7,7 @@ import torch
 
 BatchNorm = nn.BatchNorm2d
 
+#from pytorch_memlab import profile
 
 # __all__ = ['DRN', 'drn26', 'drn42', 'drn58']
 
@@ -117,9 +118,9 @@ class DRN(nn.Module):
         return torch.tensor([y,y]).unsqueeze(0).unsqueeze(2).unsqueeze(3).expand(batch_size,
 2, height, width)
 
-    def __init__(self, block=BasicBlock, layers=(1, 1, 1, 1, 1, 1, 0, 0), num_classes=3,
+    def __init__(self, block=BasicBlock, layers=(1, 1, 1, 1, 1, 0, 0, 0), num_classes=3,
                  #channels=(16, 32, 64, 128, 256, 512, 512, 512),
-                 channels=(16, 32, 32, 64, 32, 16),
+                 channels=(8, 16, 16, 16, 8),
                  out_map=True, out_middle=False, pool_size=28, arch='D'):
         super(DRN, self).__init__()
         self.inplanes = channels[0]
@@ -222,44 +223,44 @@ class DRN(nn.Module):
         return nn.Sequential(*modules)
 
     def forward(self, x, t):
-        y = list()
-        time_block = self.get_time_block(t, x.shape[0], x.shape[2], x.shape[3])
-        print(x.shape)
+        #y = list()
+        time_block = self.get_time_block(t, x.shape[0], x.shape[2], x.shape[3]).to(next(self.parameters()).device)
+        #print(x.shape)
         if self.arch == 'C':
             x = self.conv1(x)
             x = self.bn1(x)
             x = self.relu(x)
         elif self.arch == 'D':
             x = self.layer0(x)
-        print(x.shape)
+        #print(x.shape)
         x = self.layer1(x)
-        y.append(x)
-        print(x.shape)
+        #y.append(x)
+        #print(x.shape)
         x = self.layer2(x)
-        y.append(x)
-        print(x.shape)
+        #y.append(x)
+        #print(x.shape)
         x = self.layer3(x)
         x = torch.cat([time_block, x], dim=1)
-        y.append(x)
-        print(x.shape)
+        #y.append(x)
+        #print(x.shape)
         x = self.layer4(x)
-        y.append(x)
+        #y.append(x)
 
         x = self.layer5(x)
-        y.append(x)
+        #y.append(x)
 
         if self.layer6 is not None:
             x = self.layer6(x)
-            y.append(x)
+            #y.append(x)
         if self.layer7 is not None:
             x = self.layer7(x)
-            y.append(x)
+            #y.append(x)
 
         if self.layer8 is not None:
             x = self.layer8(x)
-            y.append(x)
+            #y.append(x)
 
-        print(x.shape)
+        #print(x.shape)
         if self.out_map:
             x = self.fc(x)
         else:
@@ -267,11 +268,11 @@ class DRN(nn.Module):
             x = self.fc(x)
             x = x.view(x.size(0), -1)
 
-        print(x.shape)
-        if self.out_middle:
-            return x, y
-        else:
-            return x
+        #print(x.shape)
+        #if self.out_middle:
+        #    return x, y
+        #else:
+        return x
 
 
 class DRN_A(nn.Module):

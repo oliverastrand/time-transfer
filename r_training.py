@@ -26,6 +26,7 @@ class TimeTransfer(pl.LightningModule):
 
         self.device = torch.device('cuda' if hparams.gpus > 0 else 'cpu')
         self.criteria = PerceptualLoss().to(self.device)
+        #self.criteria = torch.nn.MSELoss()
 
         # self.example_input_array = torch.zeros((4, 3, 450, 800)), torch.tensor([3, 6, 12, 21])
         #self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.hparams.lr) 
@@ -40,29 +41,29 @@ class TimeTransfer(pl.LightningModule):
 
     def training_step(self, batch, batch_nb):
         # REQUIRED
+        #print(torch.cuda.memory_allocated(device='cuda'))
         source_hour = torch.randint(0, 23, (1,)).item()
-        target_hour = source_hour #torch.randint(0, 23, (1,)).item()
+        target_hour = torch.randint(0, 23, (1,)).item()
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
-        #loss = self.criteria(y_hat, y)
-        print(y.shape)
-        print(y_hat.shape)
-        loss = F.mse_loss(y_hat, y)
-        #print(loss - loss_test)
+        loss = self.criteria(y_hat, y)
+        #loss = F.mse_loss(y_hat, y)
+
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
 
     def validation_step(self, batch, batch_nb):
         # OPTIONAL
         source_hour = torch.randint(0, 23, (1,)).item()
-        target_hour = source_hour#torch.randint(0, 23, (1,)).item()
+        target_hour = torch.randint(0, 23, (1,)).item()
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
-        print(y_hat.shape)
-        print(y.shape)
-        loss = F.mse_loss(y_hat, y)
+        #print(y_hat.shape)
+        #print(y.shape)
+        #loss = F.mse_loss(y_hat, y)
+        loss = self.criteria(y_hat, y)
         return {'val_loss': loss}
 
     def validation_end(self, outputs):
@@ -78,7 +79,8 @@ class TimeTransfer(pl.LightningModule):
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
-        loss = F.mse_loss(y_hat, y)
+        #loss = F.mse_loss(y_hat, y)
+        loss = self.criteria(y_hat, y)
         return {'test_loss': loss}
 
     def test_end(self, outputs):
@@ -105,7 +107,7 @@ class TimeTransfer(pl.LightningModule):
         # can return multiple optimizers and learning_rate schedulers
         # (LBFGS it is automatically supported, no need for closure function)
         optimizer = torch.optim.Adam(self.net.parameters(), lr=self.hparams.lr) 
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda x: 0.5 if x in [3, 7, 12] else 1, last_epoch=-1)
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda x: 0.5 if x in [2, 4, 8, 12, 17, 22] else 1, last_epoch=-1)
         return [optimizer], [scheduler] 
 
     @pl.data_loader
@@ -131,17 +133,16 @@ class TimeTransfer(pl.LightningModule):
 
 if __name__ == '__main__':
     args = {
-        'batch_size': 16,
-        'lr': 1e-4,
+        'batch_size': 8,
+        'lr': 5e-4,
         'hidden_dim': 4,
-        'data_split': [3, 1, 1],
+        'data_split': [7000, 1000, 1000],
         'n_samples': 10,
-        #'data_dir': r'~/projects/time-transfer/data/TimeLapseVDataDownsampled',
-        'data_dir': r'/Users/oliver/nyu/cv/project/dataSamples',
-        'gpus': 0,
+        'data_dir': r'~/projects/time-transfer/data/TimeLapseVDataDownsampled',
+        'gpus': 1,
     }
     hparams = Namespace(**args)
     time_transfer = TimeTransfer(hparams)
-    trainer = pl.Trainer(gpus=hparams.gpus, early_stop_callback=None, max_nb_epochs=18)
+    trainer = pl.Trainer(gpus=hparams.gpus, early_stop_callback=None, max_nb_epochs=25)
     trainer.fit(time_transfer)
     # trainer.test(time_transfer)

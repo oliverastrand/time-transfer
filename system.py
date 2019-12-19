@@ -132,7 +132,7 @@ if __name__ == '__main__':
         'data_split': [4000, 1000, 1000],
         'n_samples': 10,
         'data_dir': r'~/projects/time-transfer/data/TimeLapseVDataDownsampled',
-        'gpus': 1,
+        'gpus': 0,
     }
     hparams = Namespace(**args)
     time_transfer = TimeTransfer(hparams)
