@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, Subset
 import torchvision
 import os
 
-from models import UNet
+from models import UNet, HyperUNet
 from data_utils import TimedImageDataset, prefix_sum
 from losses import PerceptualLoss
 
@@ -17,7 +17,7 @@ class TimeTransfer(pl.LightningModule):
         self.hparams = hparams
 
         # networks
-        self.unet = UNet(3, hparams.hidden_dim)
+        self.unet = HyperUNet(3, hparams.hidden_dim)
 
         self.data_dir = os.path.expanduser(hparams.data_dir)
 
@@ -38,7 +38,7 @@ class TimeTransfer(pl.LightningModule):
     def training_step(self, batch, batch_nb):
         # REQUIRED
         source_hour = 12
-        target_hour = torch.randint(0, 23, (1,)).item()
+        target_hour = 18
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
@@ -56,7 +56,7 @@ class TimeTransfer(pl.LightningModule):
     def validation_step(self, batch, batch_nb):
         # OPTIONAL
         source_hour = 12
-        target_hour = torch.randint(0, 23, (1,)).item()
+        target_hour = 18
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
@@ -72,7 +72,7 @@ class TimeTransfer(pl.LightningModule):
     def test_step(self, batch, batch_nb):
         # OPTIONAL
         source_hour = 12
-        target_hour = torch.randint(0, 23, (1,)).item()
+        target_hour = 18
         x = self.get_time_batch(batch, source_hour)
         y = self.get_time_batch(batch, target_hour)
         y_hat = self.forward(x, target_hour)
@@ -90,7 +90,7 @@ class TimeTransfer(pl.LightningModule):
         dataset = self.test_dataloader()[0].dataset
         samples = dataset[:self.hparams.n_samples]
         source_hour = 12
-        target_hour = torch.randint(0, 23, (1,)).item()
+        target_hour = 18
 
         device = next(self.unet.parameters()).device
         x = self.get_time_batch(samples, source_hour).to(device)
@@ -130,18 +130,18 @@ class TimeTransfer(pl.LightningModule):
 if __name__ == '__main__':
     args = {
         'batch_size': 8,
-        'lr': 0.0002,
+        'lr': 0.01,
         'hidden_dim': 4,
-        'data_split': [8000, 1000, 1000],
+        'data_split': [5000, 1000, 1000],
         'n_samples': 10,
         'data_dir': r'~/E/TimeLapseVDataDownsampled'
     }
     hparams = Namespace(**args)
-    time_transfer = TimeTransfer(hparams)
+    time_transfer = TimeTransfer.load_from_checkpoint('logs/hyper_unet_logs_12_to_21/checkpoints/_ckpt_epoch_4.ckpt')
 
     from pytorch_lightning.callbacks import ModelCheckpoint
 
-    save_path = 'logs/perceptual_loss_logs'
+    save_path = 'logs/hyper_unet_logs_12_to_18_from_21'
     # DEFAULTS used by the Trainer
     checkpoint_callback = ModelCheckpoint(
         filepath=f'{save_path}/checkpoints',
