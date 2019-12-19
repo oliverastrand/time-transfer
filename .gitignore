@@ -8,5 +8,11 @@ __pycache__/
 .ipynb_checkpoints
 
 # Lightning
-lightning_logs/
+logs/
 
+.idea/.gitignore
+.idea/inspectionProfiles/
+.idea/misc.xml
+.idea/modules.xml
+.idea/time-transfer.iml
+.idea/vcs.xml
