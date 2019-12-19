@@ -1,18 +1,21 @@
+import torch
 import torch.nn as nn
 import torchvision.models as models
 import torch.nn.functional as F
 
+
 class PerceptualLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self.features = models.vgg16().features
+        self.features = models.vgg16(pretrained=True).features
         self.slices = [3, 8, 15, 22]
         self.criteria = nn.MSELoss()
-        
+
     def get_features(self, img):
+        # todo: too ineifficient
         ret = []
         y = img
-        for begin, end in zip([0]+self.slices, self.slices):
+        for begin, end in zip([0] + self.slices, self.slices):
             y = self.features[begin:end](y)
             ret.append(y)
         return ret
@@ -20,7 +23,7 @@ class PerceptualLoss(nn.Module):
     def forward(self, output, target):
         output = F.interpolate(output, size=224)
         target = F.interpolate(target, size=224)
-        
+
         out_features = self.get_features(output)
         target_features = self.get_features(target)
 
@@ -35,11 +38,11 @@ class PerceptualLoss(nn.Module):
 class PerceptualLoss2(nn.Module):
     def __init__(self):
         super().__init__()
-        self.features = models.vgg16().features
+        self.features = models.vgg16(pretrained=True).features
         self.content_slices = [None]
         self.style_slices = []
         self.criteria = nn.MSELoss()
-        
+
     def get_features(self, img):
         ret = []
 
@@ -50,12 +53,12 @@ class PerceptualLoss2(nn.Module):
             slices = self.content_slices
 
         y = img
-        for begin, end in zip([0]+slices, slices):
+        for begin, end in zip([0] + slices, slices):
             y = self.features[begin:end](y)
             ret.append(y)
-        
+
         y = img
-        for begin, end in zip([0]+self.style_slices, self.style_slices):
+        for begin, end in zip([0] + self.style_slices, self.style_slices):
             y = self.features[begin:end](y)
             gram = self.gram_matrix(y)
             ret.append(gram)
@@ -64,7 +67,7 @@ class PerceptualLoss2(nn.Module):
     def forward(self, output, target):
         output = F.interpolate(output, size=224)
         target = F.interpolate(target, size=224)
-        
+
         out_features = self.get_features(output)
         target_features = self.get_features(target)
 
@@ -87,5 +90,3 @@ class PerceptualLoss2(nn.Module):
         # we 'normalize' the values of the gram matrix
         # by dividing by the number of element in each feature maps.
         return G.div(a * b * c * d)
-
-   
